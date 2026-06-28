@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -r ' *)",
+      "Bash(php artisan *)",
+      "Bash(dir /b d:\\\\laragon\\\\www\\\\AdobeMailCenter)",
+      "PowerShell(cd d:\\\\laragon\\\\www\\\\AdobeMailCenter; php artisan tinker --execute=\"echo 'Accounts: ' . \\\\App\\\\Models\\\\GmailAccount::count\\(\\) . PHP_EOL; foreach \\(\\\\App\\\\Models\\\\GmailAccount::all\\(\\) as \\\\$a\\) { echo '- id=' . \\\\$a->id . ' email=' . \\\\$a->email . PHP_EOL; }\")"
+    ]
+  }
+}
