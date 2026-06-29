@@ -124,7 +124,7 @@ class TelegramNotifier
             $text  = "📥 <b>Adobe Stock</b>  ·  <i>Submission Update</i>\n\n";
             $text .= "👤 <code>{$accountLabel}</code>\n\n";
             $text .= "<blockquote>" . implode("\n", $rows) . "</blockquote>\n\n";
-            $text .= "📨 <tg-spoiler>{$subject}</tg-spoiler>";
+            $text .= "📨 {$subject}";
 
             return $text;
         }
@@ -145,7 +145,7 @@ class TelegramNotifier
             $text .= "💵 <b>{$currency} {$formatted}</b>\n";
             $text .= "<i>Pendapatan baru diterima</i>\n";
             $text .= "</blockquote>\n\n";
-            $text .= "📨 <tg-spoiler>{$subject}</tg-spoiler>";
+            $text .= "📨 {$subject}";
 
             return $text;
         }
