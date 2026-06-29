@@ -111,20 +111,33 @@ class DashboardController extends Controller
 
             $stats = $this->emptyStats();
 
-            // Submission update: ambil yang paling baru (latest snapshot).
-            $latestSubmission = $emails
-                ->where('email_type', Email::TYPE_SUBMISSION_UPDATE)
-                ->first();
+            // Submission update: jumlahkan seluruh snapshot dari email Adobe
+            // Stock (tiap email = delta/jumlah saat email itu dikirim), tanpa
+            // memfilter berdasarkan tanggal, sehingga total per akun =
+            // Σ accepted / pending / rejected dari semua email submission.
+            $submissions = $emails
+                ->where('email_type', Email::TYPE_SUBMISSION_UPDATE);
 
-            if ($latestSubmission) {
-                $stats['accepted_count'] = (int) ($latestSubmission->accepted_count ?? 0);
-                $stats['pending_count']  = (int) ($latestSubmission->pending_count ?? 0);
-                $stats['rejected_count'] = (int) ($latestSubmission->rejected_count ?? 0);
-                $stats['total_assets']   = $stats['accepted_count']
-                    + $stats['pending_count']
-                    + $stats['rejected_count'];
-                $stats['latest_submission_at'] = $latestSubmission->received_at;
+            foreach ($submissions as $row) {
+                $stats['accepted_count'] += (int) ($row->accepted_count ?? 0);
+                $stats['pending_count']  += (int) ($row->pending_count ?? 0);
+                $stats['rejected_count'] += (int) ($row->rejected_count ?? 0);
+
+                $received = $row->received_at instanceof Carbon
+                    ? $row->received_at
+                    : ($row->received_at ? Carbon::parse($row->received_at) : null);
+
+                if ($received && (
+                    !$stats['latest_submission_at']
+                    || $received->gt($stats['latest_submission_at'])
+                )) {
+                    $stats['latest_submission_at'] = $received;
+                }
             }
+
+            $stats['total_assets'] = $stats['accepted_count']
+                + $stats['pending_count']
+                + $stats['rejected_count'];
 
             // Earnings report: agregasi hari ini, bulan ini, dan total.
             $earnings = $emails->where('email_type', Email::TYPE_EARNINGS_REPORT);

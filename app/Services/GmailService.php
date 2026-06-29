@@ -13,7 +13,6 @@ class GmailService
 {
     public function sync(GmailAccount $account)
     {
-        Log::info("Syncing: {$account->email}");
         $client = new Client();
 
         $client->setClientId(
@@ -107,11 +106,6 @@ class GmailService
                     'From'
                 )
             )->value;
-
-            Log::info([
-                'subject' => $subject,
-                'sender' => $sender
-            ]);
 
             $subjectLower = strtolower(
                 $subject ?? ''
@@ -239,10 +233,6 @@ class GmailService
                 $body ?? '',
                 $fullMessage->getSnippet() ?? ''
             );
-
-            Log::info([
-                'parsed' => $parsed
-            ]);
 
             Email::updateOrCreate(
                 [
