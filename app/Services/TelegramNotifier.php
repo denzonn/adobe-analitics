@@ -89,6 +89,11 @@ class TelegramNotifier
     /**
      * Susun teks pesan HTML sesuai tipe email. Return null untuk tipe
      * yang tidak ingin di-notify-kan.
+     *
+     * Format pesan mengikuti gaya kartu modern: header dengan emoji besar,
+     * akun dibungkus <code> monospace, body dibungkus <blockquote> agar
+     * muncul sidebar kiri ala Telegram, dan subject tetap spoiler supaya
+     * preview notifikasi tidak bocor ke lock screen.
      */
     private function buildMessage(Email $email, GmailAccount $account): ?string
     {
@@ -105,21 +110,23 @@ class TelegramNotifier
                 return null;
             }
 
-            $lines = ["<b>📥 Adobe Stock submission</b>  —  <i>{$accountLabel}</i>"];
-
+            $rows = [];
             if ($accepted > 0) {
-                $lines[] = "✅ Diterima: <b>{$accepted}</b>";
+                $rows[] = "✅ Diterima  <b>{$accepted}</b>";
             }
             if ($rejected > 0) {
-                $lines[] = "❌ Ditolak: <b>{$rejected}</b>";
+                $rows[] = "❌ Ditolak   <b>{$rejected}</b>";
             }
             if ($pending > 0) {
-                $lines[] = "⏳ Pending: <b>{$pending}</b>";
+                $rows[] = "⏳ Pending   <b>{$pending}</b>";
             }
 
-            $lines[] = "<span class=\"tg-spoiler\">{$subject}</span>";
+            $text  = "📥 <b>Adobe Stock</b>  ·  <i>Submission Update</i>\n\n";
+            $text .= "👤 <code>{$accountLabel}</code>\n\n";
+            $text .= "<blockquote>" . implode("\n", $rows) . "</blockquote>\n\n";
+            $text .= "📨 <tg-spoiler>{$subject}</tg-spoiler>";
 
-            return implode("\n", $lines);
+            return $text;
         }
 
         if ($email->isEarningsReport()) {
@@ -130,17 +137,36 @@ class TelegramNotifier
 
             $currency = $email->earnings_currency ?: 'USD';
             $formatted = number_format($amount, 2);
+            $symbol = $this->currencySymbol($currency);
 
-            $lines = [
-                "<b>💰 Earnings baru</b>  —  <i>{$accountLabel}</i>",
-                "Pendapatan: <b>{$currency} {$formatted}</b>",
-                "<span class=\"tg-spoiler\">{$subject}</span>",
-            ];
+            $text  = "{$symbol} <b>Adobe Stock</b>  ·  <i>Earnings Report</i>\n\n";
+            $text .= "👤 <code>{$accountLabel}</code>\n\n";
+            $text .= "<blockquote>\n";
+            $text .= "💵 <b>{$currency} {$formatted}</b>\n";
+            $text .= "<i>Pendapatan baru diterima</i>\n";
+            $text .= "</blockquote>\n\n";
+            $text .= "📨 <tg-spoiler>{$subject}</tg-spoiler>";
 
-            return implode("\n", $lines);
+            return $text;
         }
 
         return null;
+    }
+
+    /**
+     * Emoji ikon berdasarkan kode mata uang, supaya pesan earnings
+     * punya visual cue yang konsisten di notifikasi.
+     */
+    private function currencySymbol(string $currency): string
+    {
+        return match (strtoupper($currency)) {
+            'USD' => '💵',
+            'EUR' => '💶',
+            'GBP' => '💷',
+            'JPY' => '💴',
+            'IDR' => '🇮🇩',
+            default => '💰',
+        };
     }
 
     /**
