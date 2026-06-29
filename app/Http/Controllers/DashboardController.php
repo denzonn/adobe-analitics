@@ -7,21 +7,29 @@ use App\Models\GmailAccount;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
         $selectedAccountId = $request->account_id;
         $selectedEmailId = $request->email_id;
 
-        $accounts = GmailAccount::withCount([
-            'emails',
-            'emails as unread_count' => function ($query) {
-                $query->where('is_read', false);
-            }
-        ])->get();
+        // Hanya akun milik user yang sedang login.
+        $accounts = GmailAccount::ownedBy($user)
+            ->withCount([
+                'emails',
+                'emails as unread_count' => function ($query) {
+                    $query->where('is_read', false);
+                }
+            ])
+            ->get();
+
+        // Pastikan selectedAccountId benar-benar milik user (anti-IDOR).
+        if ($selectedAccountId && !$accounts->contains('id', (int) $selectedAccountId)) {
+            $selectedAccountId = null;
+        }
 
         // Hitung statistik per akun dari email yang sudah di-parse.
         $accountStats = $this->buildAccountStats($accounts->pluck('id')->all());
@@ -35,16 +43,33 @@ class DashboardController extends Controller
         // Grand total (untuk kartu ringkasan atas).
         $grandTotal = $this->aggregateGrandTotal($accountStats);
 
-        $emails = Email::query()
+        // Hanya email untuk akun milik user.
+        $emailsQuery = Email::query()
+            ->whereHas('account', function ($query) use ($user) {
+                $query->where('user_id', $user->getKey());
+            })
             ->when($selectedAccountId, function ($query) use ($selectedAccountId) {
                 $query->where('gmail_account_id', $selectedAccountId);
-            })
-            ->latest('received_at')
+            });
+
+        // Eloquent Builder::latest() di Laravel 12 tetap menerima 1 argumen,
+        // tetapi pass-by-string eksplisit untuk konsistensi antar versi.
+        $emails = $emailsQuery
+            ->orderByDesc('received_at')
             ->get();
 
-        $selectedEmail = $selectedEmailId
-            ? Email::find($selectedEmailId)
-            : $emails->first();
+        // Pastikan selectedEmailId benar-benar email milik user.
+        if ($selectedEmailId) {
+            $candidate = Email::query()
+                ->whereHas('account', function ($query) use ($user) {
+                    $query->where('user_id', $user->getKey());
+                })
+                ->find($selectedEmailId);
+
+            $selectedEmail = $candidate ?: $emails->first();
+        } else {
+            $selectedEmail = $emails->first();
+        }
 
         return view('dashboard', compact(
             'accounts',
@@ -54,8 +79,13 @@ class DashboardController extends Controller
         ));
     }
 
-    public function show(Email $email)
+    public function show(Request $request, Email $email)
     {
+        // Anti-IDOR: tolak bila email bukan milik user login.
+        if ($email->account?->user_id !== $request->user()->getKey()) {
+            abort(403);
+        }
+
         if (!$email->is_read) {
             $email->update([
                 'is_read' => true

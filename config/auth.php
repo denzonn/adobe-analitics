@@ -112,4 +112,16 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Remember Me Duration
+    |--------------------------------------------------------------------------
+    |
+    | Number of minutes the "remember me" cookie should remain valid. Default
+    | 86400 = 60 days (≈ 2 months). User tidak perlu logout / login ulang
+    | selama ~2 bulan sekali.
+    */
+
+    'remember_duration' => (int) env('AUTH_REMEMBER_DURATION', 60 * 24 * 60),
+
 ];

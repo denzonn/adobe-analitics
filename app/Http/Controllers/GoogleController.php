@@ -21,21 +21,24 @@ class GoogleController extends Controller
             ->redirect();
     }
 
-    public function callback()
+    public function callback(Request $request)
     {
+        $user = $request->user();
         $googleUser = Socialite::driver('google')->stateless()->user();
 
+        // Satu akun Google hanya boleh diikat ke satu user aplikasi.
         GmailAccount::updateOrCreate(
             [
-                'email' => $googleUser->email
+                'email' => $googleUser->email,
             ],
             [
-                'google_id' => $googleUser->id,
-                'access_token' => $googleUser->token,
+                'user_id'       => $user->getKey(),
+                'google_id'     => $googleUser->id,
+                'access_token'  => $googleUser->token,
                 'refresh_token' => $googleUser->refreshToken,
             ]
         );
 
-        return redirect('/');
+        return redirect()->route('dashboard');
     }
 }
