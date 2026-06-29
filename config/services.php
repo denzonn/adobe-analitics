@@ -40,4 +40,29 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Telegram Bot
+    |--------------------------------------------------------------------------
+    |
+    | Konfigurasi untuk notifikasi Telegram ketika ada submission baru /
+    | earnings dari Adobe Stock.
+    |
+    |   TELEGRAM_BOT_TOKEN : token dari @BotFather (format: 123456:ABC...).
+    |   TELEGRAM_CHAT_ID   : chat_id default (global). Bisa di-override
+    |                        per-user via kolom telegram_chat_id di tabel
+    |                        users (lihat migration add_telegram_chat_id
+    |                        _to_users_table).
+    |
+    | Untuk mendapat chat_id, kirim pesan apa saja ke bot lalu buka:
+    |   https://api.telegram.org/bot<TOKEN>/getUpdates
+    | (atau pakai bot @userinfobot / @RawDataBot).
+    |
+    */
+
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id'   => env('TELEGRAM_CHAT_ID'),
+    ],
 ];

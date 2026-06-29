@@ -11,8 +11,26 @@ use Illuminate\Support\Facades\Log;
 
 class GmailService
 {
-    public function sync(GmailAccount $account)
+    /**
+     * Service ini juga mengirim notifikasi Telegram untuk event Adobe yang
+     * baru di-detect (submission update, earnings report). Disuntikkan via
+     * service container agar mudah di-mock saat testing.
+     */
+    public function __construct(
+        protected \App\Services\TelegramNotifier $notifier
+    ) {
+    }
+
+    /**
+     * @param  array{notify?: bool, source?: string}  $options
+     *   - notify: true (default) untuk mengirim Telegram saat email baru.
+     *   - source: 'cron' | 'manual' — untuk membedakan asal sync.
+     */
+    public function sync(GmailAccount $account, array $options = [])
     {
+        $notify = $options['notify'] ?? true;
+        $source = $options['source'] ?? 'manual';
+
         $client = new Client();
 
         $client->setClientId(
@@ -79,7 +97,47 @@ class GmailService
             return;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Optimasi quota Gmail API
+        |--------------------------------------------------------------------------
+        |
+        | Gmail `users.messages.list` cuma butuh 5 unit per call, tapi
+        | `users.messages.get` butuh 5 unit + transfer body (heavy).
+        |
+        | Setelah sync pertama, semua email lama sudah punya row di tabel
+        | emails — kita skip get() + parsing untuk message_id yang sudah
+        | dikenal, supaya sync berjalan cuma 1 list + N get di mana N =
+        | jumlah email BARU sejak sync terakhir.
+        |
+        | Gmail mengembalikan list newest-first, jadi begitu ketemu ID
+        | pertama yang sudah dikenal, semua setelahnya juga sudah dikenal
+        | → kita bisa break.
+        */
+
+        $knownIds = Email::query()
+            ->where('gmail_account_id', $account->id)
+            ->pluck('gmail_message_id')
+            ->all();
+
+        $stats = [
+            'listed'    => 0,
+            'skipped'   => 0,
+            'processed' => 0,
+        ];
+
         foreach ($messages->getMessages() as $message) {
+            $stats['listed']++;
+            $messageId = $message->getId();
+
+            if (in_array($messageId, $knownIds, true)) {
+                $stats['skipped']++;
+                // Newest-first: setelah ini semua message pasti sudah
+                // tersimpan, jadi stop.
+                break;
+            }
+
+            $stats['processed']++;
 
             $fullMessage = $gmail->users_messages->get(
                 'me',
@@ -234,7 +292,7 @@ class GmailService
                 $fullMessage->getSnippet() ?? ''
             );
 
-            Email::updateOrCreate(
+            $email = Email::updateOrCreate(
                 [
                     'gmail_account_id' => $account->id,
                     'gmail_message_id' => $message->getId(),
@@ -258,7 +316,28 @@ class GmailService
                     'received_at' => $receivedAt,
                 ]
             );
+
+            // Hanya kirim notifikasi Telegram untuk email yang BENAR-BARU
+            // masuk. updateOrCreate() di atas menandai wasRecentlyCreated=true
+            // hanya pada insert pertama (bukan re-sync), jadi tidak ada
+            // double-notify saat cron berikutnya mem-fetch message yang sama.
+            if ($notify && $email->wasRecentlyCreated && $email->email_type) {
+                try {
+                    $this->notifier->notifyNewAdobeEmail($email, $account);
+                } catch (\Throwable $e) {
+                    // Gagal kirim Telegram tidak boleh menggagalkan sync.
+                    report($e);
+                }
+            }
         }
+
+        Log::info('GmailService::sync selesai', [
+            'account'   => $account->email,
+            'source'    => $source,
+            'listed'    => $stats['listed'],
+            'skipped'   => $stats['skipped'],   // dikenal di DB → hemat get()
+            'processed' => $stats['processed'], // email BARU yang di-fetch + parse
+        ]);
     }
 
     /**

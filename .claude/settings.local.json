@@ -15,7 +15,12 @@
       "Bash(curl -s -b cookies.txt -I http://127.0.0.1:8000/dashboard)",
       "Bash(cat /tmp/cookies.txt | grep -v \"^#\")",
       "Read(//tmp/**)",
-      "Bash(curl -s -b /tmp/cookies.txt -c /tmp/cookies.txt http://127.0.0.1:8000/dashboard)"
+      "Bash(curl -s -b /tmp/cookies.txt -c /tmp/cookies.txt http://127.0.0.1:8000/dashboard)",
+      "Bash(php -l app/Services/TelegramNotifier.php)",
+      "Bash(php -l app/Services/GmailService.php)",
+      "Bash(php -l app/Console/Commands/SyncAdobeEmails.php)",
+      "Bash(php -l routes/console.php)",
+      "Bash(php -l config/services.php)"
     ]
   }
 }
