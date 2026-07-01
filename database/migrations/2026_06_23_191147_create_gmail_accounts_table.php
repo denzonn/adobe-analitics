@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('email');
             $table->string('google_id');
+            $table->integer('assets')->default(0);
 
             $table->longText('access_token')->nullable();
             $table->longText('refresh_token')->nullable();

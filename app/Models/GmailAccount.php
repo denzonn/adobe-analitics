@@ -12,6 +12,7 @@ class GmailAccount extends Model
     protected $fillable = [
         'user_id',
         'email',
+        'assets',
         'google_id',
         'access_token',
         'refresh_token',

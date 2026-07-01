@@ -124,6 +124,8 @@ class TelegramNotifier
             $text  = "📥 <b>Adobe Stock</b>  ·  <i>Submission Update</i>\n\n";
             $text .= "👤 <code>{$accountLabel}</code>\n\n";
             $text .= "<blockquote>" . implode("\n", $rows) . "</blockquote>\n\n";
+            // Total Asset Diterima sekarang dari field assets di GmailAccount, bukan dari email submission update.
+            $text .= "📦 Total Asset Diterima: <b>{$account->assets}</b>\n\n";
             $text .= "📨 {$subject}";
 
             return $text;

@@ -18,8 +18,7 @@ class GmailService
      */
     public function __construct(
         protected \App\Services\TelegramNotifier $notifier
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{notify?: bool, source?: string}  $options
@@ -317,6 +316,15 @@ class GmailService
                 ]
             );
 
+            // Tambahkan total assets jika email baru dan tipe submission
+            if (
+                $email->wasRecentlyCreated &&
+                $email->email_type === Email::TYPE_SUBMISSION_UPDATE &&
+                $email->accepted_count > 0
+            ) {
+                $account->increment('assets', $email->accepted_count);
+            }
+
             // Hanya kirim notifikasi Telegram untuk email yang BENAR-BARU
             // masuk. updateOrCreate() di atas menandai wasRecentlyCreated=true
             // hanya pada insert pertama (bukan re-sync), jadi tidak ada
@@ -330,14 +338,6 @@ class GmailService
                 }
             }
         }
-
-        Log::info('GmailService::sync selesai', [
-            'account'   => $account->email,
-            'source'    => $source,
-            'listed'    => $stats['listed'],
-            'skipped'   => $stats['skipped'],   // dikenal di DB → hemat get()
-            'processed' => $stats['processed'], // email BARU yang di-fetch + parse
-        ]);
     }
 
     /**
